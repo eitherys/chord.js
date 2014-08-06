@@ -14,8 +14,8 @@
             padding:0;
         }
     </style>
-    <canvas id="canvas" width="1920" height="700" style="display: block;width: 100%;
-                                                            height: 100%; margin: 0px;"></canvas>
+    <canvas id="canvas" style="display: block;width: 100%; height: 100%; margin: 0px;"></canvas>
+    
     <script type="text/javascript" src="./notes.js"></script>
     <script type="text/javascript">
 
@@ -41,12 +41,10 @@
         var spectrum = new Float32Array(NSPC);
         var peaks = new Float32Array(NSPC);
 
-        var noteBins = 61; //How many note bins to draw.
+        var noteBins = 62; //How many note bins to draw.
         var n_stride; //The pixel distance between notes.
         var lowF = getFreq("C", 2); //Frequency of lowest note allowed.
         var lowFi = closestBin(lowF); //FFT Bin index of lowest note allowed.
-		var threshold = .4;
-		var press = 10; //ratio to press by
 		
         /**********************************************************************************************/
         /*  Draw the spectrum (called every animation frame).                                         */
@@ -63,8 +61,6 @@
             }
             for(var i = 0; i < NSPC; i++) {
                 peaks[i] = (1-peaks[i]/max);
-				if(peaks[i] < threshold)
-					peaks[i] /= Math.pow(press, (threshold-peaks[i])/threshold);
 			}
 
             var note = 0; //The number of note bins encountered.
@@ -102,6 +98,9 @@
             canvas = document.getElementById('canvas');
             if (canvas.getContext) {
                 ctx = canvas.getContext('2d');
+                canvas.width  = window.innerWidth;
+                canvas.height = window.innerHeight;
+                
                 w = canvas.width, h = canvas.height;
 				
                 var my_gradient=ctx.createLinearGradient(0, 0, w, 0);
