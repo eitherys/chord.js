@@ -1,197 +1,27 @@
 <html>
     <head>      
-
+        <title>Chord-App.js - An app for detecting chords in the browser.</title>
+        <script type="text/javascript" src="./mus_math.js"></script>
+        <script type="text/javascript" src="./dsp.js"></script>
+        <script type="text/javascript" src="./chord-app.js"></script>
     </head>
     <body onload="onLoad()">
-    <style>
-        html, body {
-            width: 100%;
-            height: 100%;
-            margin: 0px;
-        }
-        body { 
-            background: black; 
-            padding:0;
-        }
-    </style>
-    <canvas id="canvas" style="display: block;width: 100%; height: 100%; margin: 0px;"></canvas>
-    
-    <script type="text/javascript" src="./notes.js"></script>
-    <script type="text/javascript">
-
-        /**********************************************************************************************/
-        /*  Set up the app.                                                                           */
-        /**********************************************************************************************/
-
-        var canvas, ctx, actx = new AudioContext();
-        var audioBuffer;
-        var sourceNode, DSNode, fftNode, aaFilter;
-        var w, h;
-
-        //DSP Parameters and Containers
-        var fs = 44100; //Original sampling rate.
-        var nyq = fs/2;
-        var fs_k = 10, new_fs = fs/fs_k, new_nyq = new_fs/2; //New sampling rate, integer factor down.
-        var NFFT = 2048; //Number of desired points in FFT.
-        var NSPC = NFFT/2; //Number of usable points in the FFT.
-        var N = NFFT; //Size of the Web Audio buffers.
-        var ds_N = Math.floor(N / fs_k); //Size of downsampled input buffer.
-        var binw = new_fs/NFFT; //The FFT bin width.
-        
-        var spectrum = new Float32Array(NSPC);
-        var peaks = new Float32Array(NSPC);
-
-        var noteBins = 62; //How many note bins to draw.
-        var n_stride; //The pixel distance between notes.
-        var lowF = getFreq("C", 2); //Frequency of lowest note allowed.
-        var lowFi = closestBin(lowF); //FFT Bin index of lowest note allowed.
-		
-        /**********************************************************************************************/
-        /*  Draw the spectrum (called every animation frame).                                         */
-        /**********************************************************************************************/
-        function update() {
-            ctx.clearRect(0, 0, w, h);
-            fftNode.getFloatFrequencyData(spectrum);
-
-            var max = 0;
-            for(var i = 0; i < NSPC; i++) {
-                peaks[i] = Math.abs(spectrum[i]*spectrum[i]);
-                if(peaks[i] > max) 
-                    max = peaks[i];
+        <style>
+            html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0px;
             }
-            for(var i = 0; i < NSPC; i++) {
-                peaks[i] = (1-peaks[i]/max);
-			}
-
-            var note = 0; //The number of note bins encountered.
-            var fi = lowFi, px = 0; //Incrementers for FFT Bin and pixel x-coordinate.
-            var fin1 = lowFi; //Left note.
-            var fin2 = closestBin(nextNote(lowF), NSPC, new_nyq); //Right note.
-            var b_stride = n_stride/(fin2-fin1); //The pixel distance of bins between fin1 and fin2.
-            var n = "NaN"; //The note of the frequency bin.
-            
-            while(fi < NSPC) {
-                f = (fi/NSPC)*new_nyq;
-                px += b_stride;
-                
-                n = whatNote(f, binw/2);
-				ctx.fillRect(px, h-h*peaks[fi], 2, h*peaks[fi]);
-                if(n != "NaN") {
-                    ctx.fillText(n, px, 200);
-                }
-
-                if(fi == fin2) {
-                    fin1 = fi;
-                    fin2 = closestBin(nextNote(f), NSPC, new_nyq);
-                    b_stride = n_stride/(fin2-fin1);
-                    note++;
-                }
-                fi++;
+            body { 
+                background: black; 
+                padding: 0;
             }
-            requestAnimationFrame(update);
-        }
-
-        /**********************************************************************************************/
-        /*  Functions.                                                                                */
-        /**********************************************************************************************/
-        function onLoad() {
-            canvas = document.getElementById('canvas');
-            if (canvas.getContext) {
-                ctx = canvas.getContext('2d');
-                canvas.width  = window.innerWidth;
-                canvas.height = window.innerHeight;
-                
-                w = canvas.width, h = canvas.height;
-				
-                var my_gradient=ctx.createLinearGradient(0, 0, w, 0);
-                my_gradient.addColorStop(0, "#FF0000");
-                my_gradient.addColorStop(0.25,"#FFFF00");
-                my_gradient.addColorStop(0.5,"#00FF00");
-                my_gradient.addColorStop(0.75,"#0000FF");
-                my_gradient.addColorStop(1,"#FF00FF");
-                ctx.fillStyle=my_gradient;
-                ctx.font = "15px Arial";
-				
-				n_stride = w/noteBins;
-            }
-
-            if (! window.AudioContext) {
-                if (! window.webkitAudioContext)
-                    alert('no audiocontext found');
-                window.AudioContext = window.webkitAudioContext;
-            }
-            
-			setupAudioNodes();
-			loadSound("https://dl.dropboxusercontent.com/u/15510436/File%20Sharing/To%20Zanarkand.wav");
-            requestAnimationFrame(update);
-        }
-        function setupAudioNodes() {
-            sourceNode = actx.createBufferSource();
-
-            aaf = actx.createBiquadFilter();
-            aaf.type = aaf.LOWPASS;
-            aaf.frequency.value = new_nyq;
-            aaf.Q.value = 0;
-            aaf.gain.value = 0;
-            
-            DSNode = actx.createScriptProcessor(N, 1, 1);
-            DSNode.onaudioprocess = function(e) {
-                var input = e.inputBuffer.getChannelData(0);
-                var output = e.outputBuffer.getChannelData(0);
-                
-                for(var i = 0; i < output.length; i++) {
-                    if(i <= ds_N)
-                        output[i] = input[i*fs_k]; //Get every kth sample.
-                    else
-                        output[i] = 0; //Zero-pad when no more samples are available.
-						
-					if(i < ds_N/2) output[i] *= (i/2)/(ds_N/2);
-                }   
-            }
-            fftNode = actx.createAnalyser();
-            fftNode.fftSize = NFFT;
-            fftNode.smoothingTimeConstant = .8;
-
-            sourceNode.connect(aaf);
-            aaf.connect(actx.destination);
-            aaf.connect(DSNode);
-            DSNode.connect(fftNode);
-            //DSNode.connect(actx.destination);
-        }
-
-        //Functions for the audio file.
-        function loadSound(url) {
-            var request = new XMLHttpRequest();
-            request.open('GET', url, true);
-            request.responseType = 'arraybuffer';
-            request.onload = function() {
-                actx.decodeAudioData(request.response, 
-                                        function(buffer) { playSound(buffer); }, 
-                                        function(e) { console.log(e); });
-            }
-            request.send();
-        }
-        function playSound(buffer) {
-            sourceNode.buffer = buffer;
-            sourceNode.start(0);
-        }
-        //Returns the closest bin index to the frequency.
-        function closestBin(f) {
-            for(var i = 0; i < NSPC; i++)
-                if(Math.abs(i/NSPC*new_nyq - f) <= binw/2) 
-                    return i;
-            return -1;
-        }
-        //Returns the decibel power of x.
-        function db(x){
-            return 10*(Math.log(x)/Math.log(10));
-        }
-        function cl(x) {
-            return Math.ceil(x);
-        }
-        function fl(x) {
-            return Math.floor(x);
-        }
-    </script>
+        </style>
+        <center>
+            <canvas id="canvas" style="display: block; width: 75%; height: 100%; margin: 0px;"></canvas>
+        </center>
+        <script>
+            function onLoad() {appLoad();}
+        </script>
     </body>
 </html>
