@@ -95,7 +95,6 @@ function key(note, scale) {
 	for(var i = 0; i < scale.length; i++) {
 		semi_val = semitones[note].semitone_degree[scale[i]];
 		next_base = nextbase(note[0]);
-		if()
 	}
 }
 
