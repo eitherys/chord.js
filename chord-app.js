@@ -103,8 +103,12 @@ function update() {
     ctx.clearRect(0, 0, w, h);
     ctx.font = "15px Arial";
     for(var n = 0; n < notes.length; n++) {
-        ctx.fillRect(px+5, 50, 12, notes[n].amp);
-        ctx.fillText(whatNote(notes[n].freq, binw/2), px, 30);
+        ctx.fillRect(px, 40, 12, notes[n].amp);
+        nText = whatNote(notes[n].freq, binw/2);
+        if(nText.length == 1)
+            ctx.fillText(whatNote(notes[n].freq, binw/2), px, 20);
+        else
+            ctx.fillText(whatNote(notes[n].freq, binw/2), px-3, 20);  
         px += n_stride;
     }
 
