@@ -199,6 +199,8 @@ function playSound(buffer) {
     sourceNode.start(0);
 }
 
+window.addEventListener('touchstart', function() { source.noteOn(0); }, false);
+
 
 /* Old Code Dump */
 /*
