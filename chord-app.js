@@ -112,7 +112,7 @@ function update() {
     topv = extractTopVoices(notes, nVoices).sort(function(a,b){return a.freq-b.freq;});
     for(var v = 0; v < topv.length; v++) {
         ctx.font = "40px Arial";
-        ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*nVoices), specLow);
+        ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*nVoices), h-50);
     }
 
     //Call again when frame is ready.
@@ -198,6 +198,7 @@ function loadSound(url) {
 }
 function playSound(buffer) {
     sourceNode.buffer = buffer;
+    sourceNode.loop = true;
     sourceNode.start(0);
 }
 
