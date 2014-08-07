@@ -29,9 +29,10 @@ var fs = 44100,                                 //Original sampling rate.
     octaves = 5,    
     noteBins = octaves*12+2,                    //How many note bins to draw.
     n_stride,                                   //The static pixel distance between notes.
-    b_stride,                                   //The dynamic pixel distance between FFT bins.
+    //b_stride,                                   //The dynamic pixel distance between FFT bins.
     f_low = getFreq("C", 7-octaves),            //Frequency of lowest note allowed.
-    fi_low = closestBin(f_low, NSPC, new_nyq);  //FFT Bin index of lowest note allowed.
+    fi_low = closestBin(f_low, NSPC, new_nyq),  //FFT Bin index of lowest note allowed.
+    nVoices = 5;
 
 function appLoad() {
     cvs = document.getElementById('canvas');
@@ -50,7 +51,6 @@ function appLoad() {
         grad.addColorStop(0.75,"#0000FF");
         grad.addColorStop(1,"#FF00FF");
         ctx.fillStyle = grad;
-        ctx.font = "15px Arial";
         
         n_stride = w/noteBins;
     }
@@ -82,49 +82,37 @@ function update() {
             max = peaks[i];
     }
 
-    //Scale the peaks to the height of the canvas. Since the spectrum is upside-down, must take
+    //Scale the peaks. Since the spectrum is upside-down, must take
     //1-peaks[i]/max instead of peaks[i]/max. 
     for(var i = 0; i < NSPC; i++) {
         peaks[i] = h*(1-peaks[i]/max);
     }
 
-    //Set up parameters for traversing the spectrum.
-    var note = 0;                                           //The number of note bins encountered.
-    var fi = fi_low, px = 0;                                //FFT Bin index and pixel x-coordinate.
-    var n = "Z";                                            //The note of the frequency bin.
-    var fin1 = fi_low;                                      //Left note bin.
-    var fin2 = closestBin(nextNoteF(f_low), NSPC, new_nyq);  //Right note bin.
-    b_stride = n_stride/(fin2-fin1);                  
-    
-    notePeaks=[];
-
-    //Begin drawing.
-    ctx.clearRect(0, 0, w, h);
-    while(fi < NSPC) {
+    //Extract the notes.
+    var notes=[];
+    for(var fi = fi_low; fi < NSPC; fi++) {
         f = (fi/NSPC)*new_nyq;
-        px += b_stride;
-        n = whatNote(f, binw/2);
-
-        if(n != "Z") {
+        if(whatNote(f, binw/2) != "Z") {
             voice = {freq:f, amp:peaks[fi]};
-            notePeaks.push(voice);
-
-		    ctx.fillRect(px, 0, 2, peaks[fi]);
-            ctx.fillText(n, px-4, peaks[fi]+25);
+            notes.push(voice);
         }
-        if(fi == fin2) {
-            fin1 = fi;
-            fin2 = closestBin(nextNoteF(f), NSPC, new_nyq);
-            b_stride = n_stride/(fin2-fin1);
-            note++;
-        }
-
-        fi++;
+    }
+    
+    //Begin drawing.
+    var px = 0;
+    ctx.clearRect(0, 0, w, h);
+    ctx.font = "15px Arial";
+    for(var n = 0; n < notes.length; n++) {
+        ctx.fillRect(px+5, 50, 3, notes[n].amp);
+        ctx.fillText(whatNote(notes[n].freq, binw/2), px, 30);
+        px += n_stride;
     }
 
-    topv = extractTopVoices(notePeaks, 5);
+    //Extract the voices
+    topv = extractTopVoices(notes, nVoices);
     for(var v = 0; v < topv.length; v++) {
-        ctx.fillText(whatNote(topv[v].freq, binw/2), v/topv.length*w, specLow);
+        ctx.font = "40px Arial";
+        ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*nVoices), specLow);
     }
 
     //Call again when frame is ready.
@@ -139,14 +127,26 @@ function extractTopVoices(input, numVoices) {
     }
 
     for(var i = 1; i < input.length - 1; i++) {
-        if(input[i].amp > voiceQueue[0].amp) {
-            voiceQueue[0] = input[i];
-            voiceQueue.sort(function(a,b) { 
-                                return a.amp-b.amp; 
-                            });
+        dupi = duplicateNote(input[i], voiceQueue);
+        if(dupi != -1) {
+            if(input[i].amp > voiceQueue[dupi].amp)
+                voiceQueue[dupi] = input[i];
+        }else{
+            if(input[i].amp > voiceQueue[0].amp)
+                voiceQueue[0] = input[i];
         }
+        voiceQueue.sort(function(a,b) { return a.amp-b.amp; });
     }
     return voiceQueue;
+}
+
+//Returns the voice index in the voice queue that is a duplicate, or a -1 if there are none.
+function duplicateNote(voice, vq) {
+    for(var i = 0; i < vq.length; i++) { 
+        if(whatNote(voice.freq, binw/2) == whatNote(vq[i].freq, binw/2))
+            return i;
+    }
+    return -1;
 }
 
 
@@ -166,13 +166,14 @@ function setupAudioNodes() {
     DSNode.onaudioprocess = function(e) {
         var input = e.inputBuffer.getChannelData(0);
         var output = e.outputBuffer.getChannelData(0);
-        downsample(input, output, fs_k);    
+        downsample(input, output, fs_k);
+        hann(output, ds_N); 
     }
 
     //Create the FFT Node.
     fftNode = actx.createAnalyser();
     fftNode.fftSize = NFFT;
-    fftNode.smoothingTimeConstant = .8;
+    fftNode.smoothingTimeConstant = .85;
     
     //Connect the Nodes.
     sourceNode.connect(aaf);
@@ -197,3 +198,36 @@ function playSound(buffer) {
     sourceNode.buffer = buffer;
     sourceNode.start(0);
 }
+
+
+/* Old Code Dump */
+/*
+    //var n = "Z";                                          //The note of the frequency bin.
+    //b_stride = n_stride/(fin2-fin1);  
+
+    var fin1 = fi_low;                                      //Left note bin.
+    var fin2 = closestBin(nextNoteF(f_low), NSPC, new_nyq); //Right note bin.
+
+    ctx.clearRect(0, 0, w, h);
+    while(fi < NSPC) {
+        f = (fi/NSPC)*new_nyq;
+        px += b_stride;
+        n = whatNote(f, binw/2);
+
+        if(n != "Z") {
+            voice = {freq:f, amp:peaks[fi]};
+            notePeaks.push(voice);
+
+            ctx.fillRect(px, 0, 2, peaks[fi]);
+            ctx.fillText(n, px-4, peaks[fi]+25);
+        }
+        if(fi == fin2) {
+            fin1 = fi;
+            fin2 = closestBin(nextNoteF(f), NSPC, new_nyq);
+            b_stride = n_stride/(fin2-fin1);
+            note++;
+        }
+
+        fi++;
+    }
+*/

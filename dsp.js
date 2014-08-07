@@ -25,3 +25,8 @@ function closestBin(f, NSPC, nyq) {
             return i;
     return -1;
 }
+
+function hann(data, N) {
+	for(var n = 0; n < N; n++)
+		data[n] *= .54 - .46*Math.cos(2*Math.PI*n/N);
+}
