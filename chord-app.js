@@ -20,7 +20,7 @@ var fs = 44100,                                 //Original sampling rate.
     
     NFFT = 2048,                                //Number of desired points in FFT.
     NSPC = NFFT/2,                              //Number of usable points in the FFT.
-    N = NFFT,                                   //Size of the Web Audio buffers.
+    N = NFFT*2,                                   //Size of the Web Audio buffers.
     ds_N = Math.floor(N / fs_k),                //Size of downsampled input buffer.
     binw = new_fs/NFFT,                         //The FFT bin width.
     spectrum = new Float32Array(NSPC),
@@ -32,7 +32,7 @@ var fs = 44100,                                 //Original sampling rate.
     //b_stride,                                   //The dynamic pixel distance between FFT bins.
     f_low = getFreq("C", 7-octaves),            //Frequency of lowest note allowed.
     fi_low = closestBin(f_low, NSPC, new_nyq),  //FFT Bin index of lowest note allowed.
-    nVoices = 5;
+    nVoices = 7;
 
 function appLoad() {
     cvs = document.getElementById('canvas');
@@ -63,7 +63,7 @@ function appLoad() {
     }
     
     setupAudioNodes();
-    loadSound("https://dl.dropboxusercontent.com/u/15510436/File%20Sharing/To%20Zanarkand.wav");
+    loadSound("https://dl.dropboxusercontent.com/u/15510436/File%20Sharing/moanin.mp3");
 
     requestAnimationFrame(update);
 }
@@ -103,13 +103,13 @@ function update() {
     ctx.clearRect(0, 0, w, h);
     ctx.font = "15px Arial";
     for(var n = 0; n < notes.length; n++) {
-        ctx.fillRect(px+5, 50, 3, notes[n].amp);
+        ctx.fillRect(px+5, 50, 12, notes[n].amp);
         ctx.fillText(whatNote(notes[n].freq, binw/2), px, 30);
         px += n_stride;
     }
 
     //Extract the voices
-    topv = extractTopVoices(notes, nVoices);
+    topv = extractTopVoices(notes, nVoices).sort(function(a,b){return a.freq-b.freq;});
     for(var v = 0; v < topv.length; v++) {
         ctx.font = "40px Arial";
         ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*nVoices), specLow);
@@ -128,14 +128,14 @@ function extractTopVoices(input, numVoices) {
 
     for(var i = 1; i < input.length - 1; i++) {
         if(input[i].amp - input[i-1].amp > 0 & input[i].amp - input[i+1].amp > 0) {
-            dupi = duplicateNote(input[i], voiceQueue);
-            if(dupi != -1) {
-                if(input[i].amp > voiceQueue[dupi].amp)
-                    voiceQueue[dupi] = input[i];
-            }else{
+            //dupi = duplicateNote(input[i], voiceQueue);
+            //if(dupi != -1) {
+            //    if(input[i].amp > voiceQueue[dupi].amp)
+             //       voiceQueue[dupi] = input[i];
+            //}else{
                 if(input[i].amp > voiceQueue[0].amp)
                     voiceQueue[0] = input[i];
-            }
+            //}
             voiceQueue.sort(function(a,b) { return a.amp-b.amp; });
         }
     }
@@ -175,7 +175,7 @@ function setupAudioNodes() {
     //Create the FFT Node.
     fftNode = actx.createAnalyser();
     fftNode.fftSize = NFFT;
-    fftNode.smoothingTimeConstant = .85;
+    fftNode.smoothingTimeConstant = 0.9;
     
     //Connect the Nodes.
     sourceNode.connect(aaf);
