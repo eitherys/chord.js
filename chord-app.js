@@ -127,7 +127,7 @@ function extractTopVoices(input, numVoices) {
     }
 
     for(var i = 1; i < input.length - 1; i++) {
-        if(input[i].amp - input[i-1].amp > 0 & input[i] - input[i+1] > 0) {
+        if(input[i].amp - input[i-1].amp > 0 & input[i].amp - input[i+1].amp > 0) {
             dupi = duplicateNote(input[i], voiceQueue);
             if(dupi != -1) {
                 if(input[i].amp > voiceQueue[dupi].amp)
