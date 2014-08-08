@@ -1,7 +1,44 @@
-//  Nabeel Ansari
-//  8-6-2014
-//  chord-app: JavaScript app to detect chords using HTML5 audio. Requires dsp.js and mus_math.js 
-//             to already be imported.
+/*
+    Nabeel Ansari
+    8-6-2014
+    chord-app: JavaScript app to detect chords using HTML5 audio. Requires dsp.js and mus_math.js 
+               to already be imported.
+
+    Allow me to explain the underlying theory of this application. I'm essentially creating
+    polyphonic pitch detection out of spectral calculation. I use the Web Audio API in these 
+    steps:
+        -Input Audio (built-in)
+        -Anti-aliasing Filter (built-in)
+        -Downsampling
+        -Spectral Computation (built-in)
+    
+    The anti-aliasing filter and downsampling go hand in hand. We want to downsample because when we
+    downsample, your highest representable frequency, called the nyquist, lowers. For this app, we only care
+    about notes up to C7 (a reasonable stopping point for detecting chord tones), so we lower the nyquist
+    from 22050Hz (the nyquist of 44.1KHz sampling) to an integer multiple that can fit up to C7. Why not just
+    filter, you might ask? Filtering would certainly eliminate the effect of high frequencies on the chords.
+
+    With an FFT, the bin width has direct correlation to sampling rate, so when we have smaller sampling 
+    rates, we have a smaller bin width (essentially, our frequency resolution increases). However,
+    any frequencies under the original nyquist but over the new nyquist will have effects on the signal 
+    that persist through the downsampling. Since these frequencies can not be represented properly, 
+    they essentially corrupt the signal, having effects on it without being correctly accounted for 
+    in an Fast Fourier Transform. The solution is simple; apply a low pass filter before the downsampling
+    to remove the effect of those frequencies in the signal. The cutoff should be inuitively the new
+    nyquist. After downsampling, we are not accumulating any extra unwanted aliasing.
+
+    If we downsample by a factor of 10 (given 44100 KHz audio), our nyquist is 2205 Hz, just above C7.
+    When we take a 2048 point FFT, our bin width is Fs/N = 4410/2048 = 2.15Hz. This means that each bin
+    captures +/- 1.075 Hz of frequency energy around its center frequency, which is simply n/N * nyquist.
+    Distance between notes down to C2 is around 4Hz, so this resolution is more than enough. The actual
+    downsampling process is simple; just create a new signal with every 10th sample.
+
+    After acquiring the spectral data, we then locate all of the note bins. Refer to the mus_math.js file
+    to see how I do this. I linearly space each note bin for the visualizer and pass off a list of the note
+    frequencies and amplitudes to a voice extracting algorithm. It locates the top v voices where v is a 
+    small integer specified by the user. The app then displays the returned list of voices at the bottom of
+    the visualizer.
+*/
 
 /**********************************************************************************************/
 /*  Set up the app.                                                                           */
@@ -20,7 +57,7 @@ var fs = 44100,                                 //Original sampling rate.
     
     NFFT = 2048,                                //Number of desired points in FFT.
     NSPC = NFFT/2,                              //Number of usable points in the FFT.
-    N = NFFT*2,                                   //Size of the Web Audio buffers.
+    N = NFFT*2,                                 //Size of the Web Audio buffers.
     ds_N = Math.floor(N / fs_k),                //Size of downsampled input buffer.
     binw = new_fs/NFFT,                         //The FFT bin width.
     spectrum = new Float32Array(NSPC),
@@ -29,7 +66,7 @@ var fs = 44100,                                 //Original sampling rate.
     octaves = 5,    
     noteBins = octaves*12+2,                    //How many note bins to draw.
     n_stride,                                   //The static pixel distance between notes.
-    //b_stride,                                   //The dynamic pixel distance between FFT bins.
+    //b_stride,                                 //The dynamic pixel distance between FFT bins.
     f_low = getFreq("C", 7-octaves),            //Frequency of lowest note allowed.
     fi_low = closestBin(f_low, NSPC, new_nyq),  //FFT Bin index of lowest note allowed.
     nVoices = 7;
@@ -91,7 +128,7 @@ function update()
         peaks[i] = h*Math.pow((1-peaks[i]/max), 2);
 
     //Extract the notes.
-    var notes=[];
+    var notes = [];
     for(var fi = fi_low; fi < NSPC; fi++) 
     {
         f = (fi/NSPC)*new_nyq;
@@ -215,18 +252,3 @@ function playSound(buffer)
     sourceNode.loop = true;
     sourceNode.start(0);
 }
-
-window.addEventListener('touchstart', function() 
-{
-    // create empty buffer
-    var buffer = myContext.createBuffer(1, 1, 22050);
-    var source = myContext.createBufferSource();
-    source.buffer = buffer;
-
-    // connect to output (your speakers)
-    source.connect(myContext.destination);
-
-    // play the file
-    source.noteOn(0);
-
-}, false);

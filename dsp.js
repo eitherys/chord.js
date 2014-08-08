@@ -5,7 +5,8 @@
 //Downsample the input array into equal size output array by an integer factor fs_k.
 function downsample(input, output, fs_k) 
 {
-	if(input.length != output.length) {
+	if(input.length != output.length) 
+	{
 		alert("Downsample I/O sizes not equal!");
 		return;
 	}
