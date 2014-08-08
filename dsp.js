@@ -36,7 +36,7 @@ function hann(data, N)
 }
 
 //Scales input data to the desired maximum.
-function scale(data, max) 
+function scale(data) 
 {
 	var max = 0;
 	var i = 0;
@@ -45,5 +45,18 @@ function scale(data, max)
 		if(max < Math.abs(data[i])) 
 			max = Math.abs(data[i]);
 	for(i = 0; i < data.length; i++)
-		data /= max;
+		data[i] /= max;
+}
+
+//Must be scaled.
+function invert(data) 
+{
+	for(var i = 0; i < data.length; i++)
+		data[i] = 1-data[i];
+}
+
+function powerSpectrum(spectrum) 
+{
+	for(var i = 0; i < spectrum.length; i++) 
+		spectrum[i] = Math.pow(spectrum[i], 2);
 }

@@ -45,7 +45,7 @@
 /**********************************************************************************************/
 var cvs, ctx, actx = new AudioContext();
 var audioBuffer;
-var sourceNode, DSNode, fftNode, aaFilter;
+var sourceNode, aaf, DSNode, fdomain;
 var w, h;
 var specLow;
 
@@ -111,21 +111,19 @@ function appLoad()
 /**********************************************************************************************/
 function update() 
 {
-    fftNode.getFloatFrequencyData(spectrum);
+    fdomain.getFloatFrequencyData(spectrum);
 
     //Load the spectrum into the peaks array.
-    var max = 0;
     for(var i = 0; i < NSPC; i++) 
-    {
         peaks[i] = Math.abs(spectrum[i]);
-        if(peaks[i] > max) 
-            max = peaks[i];
-    }
+    
+    //The JS Node gives us an inverted spectrum, so we scale it from 0 to 1 and invert it.
+    scale(peaks);
+    invert(peaks);
 
-    //Scale the peaks. Since the spectrum is upside-down, must take
-    //1-peaks[i]/max instead of peaks[i]/max. 
+    //Scale the peaks to the height. 
     for(var i = 0; i < NSPC; i++) 
-        peaks[i] = h*Math.pow((1-peaks[i]/max), 2);
+        peaks[i] = h*peaks[i];
 
     //Extract the notes.
     var notes = [];
@@ -220,15 +218,17 @@ function setupAudioNodes()
     }
 
     //Create the FFT Node.
-    fftNode = actx.createAnalyser();
-    fftNode.fftSize = NFFT;
-    fftNode.smoothingTimeConstant = 0.9;
+    fdomain = actx.createAnalyser();
+    fdomain.fftSize = NFFT;
+    fdomain.smoothingTimeConstant = 0.9;
     
     //Connect the Nodes.
     sourceNode.connect(aaf);
-    sourceNode.connect(actx.destination);
     aaf.connect(DSNode);
-    DSNode.connect(fftNode);
+    DSNode.connect(fdomain);
+
+    //Don't forget playback.
+    sourceNode.connect(actx.destination);
 }
 
 //For the audio playback.
