@@ -34,9 +34,11 @@ var fs = 44100,                                 //Original sampling rate.
     fi_low = closestBin(f_low, NSPC, new_nyq),  //FFT Bin index of lowest note allowed.
     nVoices = 7;
 
-function appLoad() {
+function appLoad() 
+{
     cvs = document.getElementById('canvas');
-    if (cvs.getContext) {
+    if (cvs.getContext) 
+    {
         ctx = cvs.getContext('2d');
         cvs.width = window.innerWidth*.75;
         cvs.height = window.innerHeight;
@@ -55,12 +57,11 @@ function appLoad() {
         n_stride = w/noteBins;
     }
 
-    if (!window.AudioContext) {
+    if (!window.AudioContext)
         if (!window.webkitAudioContext)
             alert('No Audiocontext Found');
         else
             window.AudioContext = window.webkitAudioContext;
-    }
     
     setupAudioNodes();
     loadSound("https://dl.dropboxusercontent.com/u/15510436/File%20Sharing/moanin.mp3");
@@ -71,28 +72,31 @@ function appLoad() {
 /**********************************************************************************************/
 /*  Draw the spectrum (called every animation frame).                                         */
 /**********************************************************************************************/
-function update() {
+function update() 
+{
     fftNode.getFloatFrequencyData(spectrum);
 
     //Load the spectrum into the peaks array.
     var max = 0;
-    for(var i = 0; i < NSPC; i++) {
-        peaks[i] = Math.pow(spectrum[i], 2);
+    for(var i = 0; i < NSPC; i++) 
+    {
+        peaks[i] = Math.abs(spectrum[i]);
         if(peaks[i] > max) 
             max = peaks[i];
     }
 
     //Scale the peaks. Since the spectrum is upside-down, must take
     //1-peaks[i]/max instead of peaks[i]/max. 
-    for(var i = 0; i < NSPC; i++) {
-        peaks[i] = h*(1-peaks[i]/max);
-    }
+    for(var i = 0; i < NSPC; i++) 
+        peaks[i] = h*Math.pow((1-peaks[i]/max), 2);
 
     //Extract the notes.
     var notes=[];
-    for(var fi = fi_low; fi < NSPC; fi++) {
+    for(var fi = fi_low; fi < NSPC; fi++) 
+    {
         f = (fi/NSPC)*new_nyq;
-        if(whatNote(f, binw/2) != "Z") {
+        if(whatNote(f, binw/2) != "Z") 
+        {
             voice = {freq:f, amp:peaks[fi]};
             notes.push(voice);
         }
@@ -102,18 +106,20 @@ function update() {
     var px = 0;
     ctx.clearRect(0, 0, w, h);
     ctx.font = "15px Arial";
-    for(var n = 0; n < notes.length; n++) {
+    for(var n = 0; n < notes.length; n++) 
+    {
         ctx.fillRect(px, 40, 12, notes[n].amp);
         nText = whatNote(notes[n].freq, binw/2);
         if(nText.length == 1)
             ctx.fillText(whatNote(notes[n].freq, binw/2), px, 20);
         else
             ctx.fillText(whatNote(notes[n].freq, binw/2), px-3, 20);  
+        
         px += n_stride;
     }
 
     //Extract the voices
-    topv = extractTopVoices(notes, nVoices).sort(function(a,b){return a.freq-b.freq;});
+    topv = extractTopVoices(notes, nVoices).sort(function(a,b){ return a.freq-b.freq; });
     for(var v = 0; v < topv.length; v++) {
         ctx.font = "40px Arial";
         ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*nVoices), h-50);
@@ -123,23 +129,21 @@ function update() {
     requestAnimationFrame(update);
 }
 
-function extractTopVoices(input, numVoices) {
+function extractTopVoices(input, numVoices) 
+{
     var voiceQueue=[];
-    for(var i = 0; i < numVoices; i++) {
+    for(var i = 0; i < numVoices; i++) 
+    {
         v = {bin:0, amp:0};
         voiceQueue.push(v);
     }
 
-    for(var i = 1; i < input.length - 1; i++) {
-        if(input[i].amp - input[i-1].amp > 0 & input[i].amp - input[i+1].amp > 0) {
-            //dupi = duplicateNote(input[i], voiceQueue);
-            //if(dupi != -1) {
-            //    if(input[i].amp > voiceQueue[dupi].amp)
-             //       voiceQueue[dupi] = input[i];
-            //}else{
-                if(input[i].amp > voiceQueue[0].amp)
-                    voiceQueue[0] = input[i];
-            //}
+    for(var i = 1; i < input.length - 1; i++) 
+    {
+        if(input[i].amp - input[i-1].amp > 0 & input[i].amp - input[i+1].amp > 0) 
+        {
+            if(input[i].amp > voiceQueue[0].amp)
+                voiceQueue[0] = input[i];
             voiceQueue.sort(function(a,b) { return a.amp-b.amp; });
         }
     }
@@ -147,11 +151,11 @@ function extractTopVoices(input, numVoices) {
 }
 
 //Returns the voice index in the voice queue that is a duplicate, or a -1 if there are none.
-function duplicateNote(voice, vq) {
-    for(var i = 0; i < vq.length; i++) { 
+function duplicateNote(voice, vq) 
+{
+    for(var i = 0; i < vq.length; i++) 
         if(whatNote(voice.freq, binw/2) == whatNote(vq[i].freq, binw/2))
             return i;
-    }
     return -1;
 }
 
@@ -159,7 +163,8 @@ function duplicateNote(voice, vq) {
 /**********************************************************************************************/
 /*  Initialization functions.                                                                 */
 /**********************************************************************************************/
-function setupAudioNodes() {
+function setupAudioNodes() 
+{
     sourceNode = actx.createBufferSource();
 
     //Create an anti-aliasing filter for the downsampling
@@ -169,7 +174,8 @@ function setupAudioNodes() {
     
     //Create the downsample node.
     DSNode = actx.createScriptProcessor(N, 1, 1);
-    DSNode.onaudioprocess = function(e) {
+    DSNode.onaudioprocess = function(e) 
+    {
         var input = e.inputBuffer.getChannelData(0);
         var output = e.outputBuffer.getChannelData(0);
         downsample(input, output, fs_k);
@@ -189,25 +195,29 @@ function setupAudioNodes() {
 }
 
 //For the audio playback.
-function loadSound(url) {
+function loadSound(url) 
+{
     var request = new XMLHttpRequest();
     request.open('GET', url, true);
     request.responseType = 'arraybuffer';
-    request.onload = function() {
+    request.onload = function() 
+    {
         actx.decodeAudioData(request.response, 
                              function(buffer) { playSound(buffer); }, 
                              function(e) { console.log(e); });
     }
     request.send();
 }
-function playSound(buffer) {
+
+function playSound(buffer) 
+{
     sourceNode.buffer = buffer;
     sourceNode.loop = true;
     sourceNode.start(0);
 }
 
-window.addEventListener('touchstart', function() {
-
+window.addEventListener('touchstart', function() 
+{
     // create empty buffer
     var buffer = myContext.createBuffer(1, 1, 22050);
     var source = myContext.createBufferSource();
@@ -220,35 +230,3 @@ window.addEventListener('touchstart', function() {
     source.noteOn(0);
 
 }, false);
-
-/* Old Code Dump */
-/*
-    //var n = "Z";                                          //The note of the frequency bin.
-    //b_stride = n_stride/(fin2-fin1);  
-
-    var fin1 = fi_low;                                      //Left note bin.
-    var fin2 = closestBin(nextNoteF(f_low), NSPC, new_nyq); //Right note bin.
-
-    ctx.clearRect(0, 0, w, h);
-    while(fi < NSPC) {
-        f = (fi/NSPC)*new_nyq;
-        px += b_stride;
-        n = whatNote(f, binw/2);
-
-        if(n != "Z") {
-            voice = {freq:f, amp:peaks[fi]};
-            notePeaks.push(voice);
-
-            ctx.fillRect(px, 0, 2, peaks[fi]);
-            ctx.fillText(n, px-4, peaks[fi]+25);
-        }
-        if(fi == fin2) {
-            fin1 = fi;
-            fin2 = closestBin(nextNoteF(f), NSPC, new_nyq);
-            b_stride = n_stride/(fin2-fin1);
-            note++;
-        }
-
-        fi++;
-    }
-*/
