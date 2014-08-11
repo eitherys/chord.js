@@ -57,7 +57,7 @@ var fs = 44100,                                 //Original sampling rate.
     
     NFFT = 2048,                                //Number of desired points in FFT.
     NSPC = NFFT/2,                              //Number of usable points in the FFT.
-    N = NFFT*2,                                 //Size of the Web Audio buffers.
+    N = NFFT,                                 //Size of the Web Audio buffers.
     ds_N = Math.floor(N / fs_k),                //Size of downsampled input buffer.
     binw = new_fs/NFFT,                         //The FFT bin width.
     spectrum = new Float32Array(NSPC),
@@ -69,7 +69,9 @@ var fs = 44100,                                 //Original sampling rate.
     //b_stride,                                 //The dynamic pixel distance between FFT bins.
     f_low = getFreq("C", 7-octaves),            //Frequency of lowest note allowed.
     fi_low = closestBin(f_low, NSPC, new_nyq),  //FFT Bin index of lowest note allowed.
-    nVoices = 7;
+    voices = 7;
+
+var analyserPause = false;
 
 function appLoad() 
 {
@@ -78,7 +80,7 @@ function appLoad()
     {
         ctx = cvs.getContext('2d');
         cvs.width = window.innerWidth*.75;
-        cvs.height = window.innerHeight;
+        cvs.height = window.innerHeight*.75;
         w=cvs.width;
         h=cvs.height;
         specLow=h-200;
@@ -101,9 +103,6 @@ function appLoad()
             window.AudioContext = window.webkitAudioContext;
     
     setupAudioNodes();
-    loadSound("https://dl.dropboxusercontent.com/u/15510436/File%20Sharing/moanin.mp3");
-
-    requestAnimationFrame(update);
 }
 
 /**********************************************************************************************/
@@ -121,9 +120,6 @@ function update()
     scale(peaks);
     invert(peaks);
 
-    //Scale the peaks to the height. 
-    for(var i = 0; i < NSPC; i++) 
-        peaks[i] = h*peaks[i];
 
     //Extract the notes.
     var notes = [];
@@ -137,13 +133,16 @@ function update()
         }
     }
     
+    //Scale the peaks to the height. 
+    for(var i = 0; i < NSPC; i++) 
+        peaks[i] = h*peaks[i];
     //Begin drawing.
     var px = 0;
     ctx.clearRect(0, 0, w, h);
     ctx.font = "15px Arial";
     for(var n = 0; n < notes.length; n++) 
     {
-        ctx.fillRect(px, 40, 12, notes[n].amp);
+        ctx.fillRect(px, 30, 12, h*notes[n].amp);
         nText = whatNote(notes[n].freq, binw/2);
         if(nText.length == 1)
             ctx.fillText(whatNote(notes[n].freq, binw/2), px, 20);
@@ -154,20 +153,23 @@ function update()
     }
 
     //Extract the voices
-    topv = extractTopVoices(notes, nVoices).sort(function(a,b){ return a.freq-b.freq; });
-    for(var v = 0; v < topv.length; v++) {
+    topv = extractTopVoices(notes, voices, .4).sort(function(a,b){ return a.freq-b.freq; });
+    V = topv.length;
+    for(var v = 0; v < V; v++) {
         ctx.font = "40px Arial";
-        ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*nVoices), h-50);
+        ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*V), h-50);
     }
 
     //Call again when frame is ready.
-    requestAnimationFrame(update);
+    if(!analyserPause)
+        requestAnimationFrame(update);
 }
 
-function extractTopVoices(input, numVoices) 
+//Extracts top voices above a threshold. nVoices is the maximum number of voices to search for.
+function extractTopVoices(input, max_N, threshold) 
 {
     var voiceQueue=[];
-    for(var i = 0; i < numVoices; i++) 
+    for(var i = 0; i < max_N; i++) 
     {
         v = {bin:0, amp:0};
         voiceQueue.push(v);
@@ -175,12 +177,13 @@ function extractTopVoices(input, numVoices)
 
     for(var i = 1; i < input.length - 1; i++) 
     {
-        if(input[i].amp - input[i-1].amp > 0 & input[i].amp - input[i+1].amp > 0) 
-        {
-            if(input[i].amp > voiceQueue[0].amp)
-                voiceQueue[0] = input[i];
-            voiceQueue.sort(function(a,b) { return a.amp-b.amp; });
-        }
+        if(input[i].amp > threshold)
+            if(input[i].amp - input[i-1].amp > 0 & input[i].amp - input[i+1].amp > 0) 
+            {
+                if(input[i].amp > voiceQueue[0].amp)
+                    voiceQueue[0] = input[i];
+                voiceQueue.sort(function(a,b) { return a.amp-b.amp; });
+            }
     }
     return voiceQueue;
 }
@@ -232,7 +235,7 @@ function setupAudioNodes()
 }
 
 //For the audio playback.
-function loadSound(url) 
+function loadSound(url, offset) 
 {
     var request = new XMLHttpRequest();
     request.open('GET', url, true);
@@ -240,15 +243,21 @@ function loadSound(url)
     request.onload = function() 
     {
         actx.decodeAudioData(request.response, 
-                             function(buffer) { playSound(buffer); }, 
+                             function(buffer) { createSource(buffer, offset); }, 
                              function(e) { console.log(e); });
     }
     request.send();
 }
 
-function playSound(buffer) 
-{
+function createSource(buffer, offset)
+{   
+    sourceNode = actx.createBufferSource();  
     sourceNode.buffer = buffer;
-    sourceNode.loop = true;
-    sourceNode.start(0);
+
+    //Re-connect the source node.
+    sourceNode.connect(aaf);
+    sourceNode.connect(actx.destination);
+
+    //Play the sound.
+    sourceNode.start(0, offset);
 }

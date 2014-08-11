@@ -18,12 +18,82 @@
                 background: black; 
                 padding: 0;
             }
+            p
+            {
+                font-family: Arial;
+                color: white;
+            }
         </style>
         <center>
-            <canvas id="canvas" style="display: block; width: 75%; height: 100%; margin: 0px;"></canvas>
+            <p></br>
+                Welcome to the Chord.js demo app! <br><br>
+                Input File URL Here:
+                <input type="text" id="fileURL">
+            </p>
+            <p>
+                <input type="button" value="Play" id="play">
+                <input type="button" value="Pause" id="pause">
+                <input type="button" value="Stop" id="stop">
+            </p>
+
+            <canvas id="canvas" style="display: block; width: 75%; height: 75%; margin: 0px;"></canvas>
         </center>
         <script>
+
+            var startedAt,
+                pausedAt,
+                state = "stopped";
+
             function onLoad() { appLoad(); }
+
+            document.getElementById("play").onclick = function() 
+            {
+                if(state != "playing")
+                {
+                    inputURL = document.getElementById("fileURL").value;
+                    if(inputURL == "")
+                    {
+                        alert("No URL Given!");
+                        return;
+                    }
+    
+                    if(state == "stopped") 
+                    {
+                        startedAt = Date.now();
+                        loadSound(inputURL, 0);
+                    }
+                    else if(state == "paused") 
+                    {   
+                        startedAt = Date.now() - pausedAt;
+                        loadSound(inputURL, pausedAt/1000);
+                    } 
+                    
+                    state = "playing";
+                    analyserPause = false;
+                    requestAnimationFrame(update);
+                }
+            };
+            document.getElementById("pause").onclick = function()
+            {
+                if(state == "playing")
+                {
+                    sourceNode.stop(0);
+                    pausedAt = Date.now() - startedAt;
+                    state = "paused";
+                    analyserPause = true;
+                }
+            };
+            document.getElementById("stop").onclick = function() 
+            {
+                if(state == "playing")
+                {
+                    sourceNode.stop(0);
+                    now = Date.now();
+                    state = "stopped";
+                    analyserPause = true;
+                }
+            };
+
         </script>
     </body>
 </html>
