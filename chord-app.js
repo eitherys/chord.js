@@ -153,7 +153,7 @@ function update()
     }
 
     //Extract the voices
-    topv = extractTopVoices(notes, voices, .4).sort(function(a,b){ return a.freq-b.freq; });
+    topv = extractTopVoices(notes, voices, .2).sort(function(a,b){ return a.freq-b.freq; });
     V = topv.length;
     for(var v = 0; v < V; v++) {
         ctx.font = "40px Arial";
@@ -253,7 +253,8 @@ function createSource(buffer, offset)
 {   
     sourceNode = actx.createBufferSource();  
     sourceNode.buffer = buffer;
-
+    sourceNode.loop = true;
+    
     //Re-connect the source node.
     sourceNode.connect(aaf);
     sourceNode.connect(actx.destination);
