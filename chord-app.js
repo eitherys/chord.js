@@ -1,8 +1,8 @@
 /*
     Nabeel Ansari
     8-6-2014
-    chord-app: JavaScript app to detect chords using HTML5 audio. Requires dsp.js and mus_math.js 
-               to already be imported.
+    chord-app: JavaScript app to detect multiple pitchces using HTML5 audio. Requires dsp.js and 
+               mus_math.js to already be imported.
 
     Allow me to explain the underlying theory of this application. I'm essentially creating
     polyphonic pitch detection out of spectral calculation. I use the Web Audio API in these 
@@ -57,21 +57,22 @@ var fs = 44100,                                 //Original sampling rate.
     
     NFFT = 2048,                                //Number of desired points in FFT.
     NSPC = NFFT/2,                              //Number of usable points in the FFT.
-    N = NFFT,                                 //Size of the Web Audio buffers.
+    N = NFFT,                                   //Size of the Web Audio buffers.
     ds_N = Math.floor(N / fs_k),                //Size of downsampled input buffer.
     binw = new_fs/NFFT,                         //The FFT bin width.
-    spectrum = new Float32Array(NSPC),
-    peaks = new Float32Array(NSPC),
+    spectrum = new Float32Array(NSPC),          //Output of Analyser Node
+    peaks = new Float32Array(NSPC),             //Absolute value, inversion of Analyser Node
 
-    octaves = 5,    
+    octaves = 5,                                //How many octaves to account for
     noteBins = octaves*12+2,                    //How many note bins to draw.
     n_stride,                                   //The static pixel distance between notes.
-    //b_stride,                                 //The dynamic pixel distance between FFT bins.
     f_low = getFreq("C", 7-octaves),            //Frequency of lowest note allowed.
     fi_low = closestBin(f_low, NSPC, new_nyq),  //FFT Bin index of lowest note allowed.
-    voices = 7;
+    voices = 7,                                 //Number of voices to look for.
+    extractionThreshold = .2,                   //Amplitude threshold of frequency (0 to 1)
 
-var analyserPause = false;
+    inputType,
+    loopIntervalID;
 
 function appLoad() 
 {
@@ -81,9 +82,9 @@ function appLoad()
         ctx = cvs.getContext('2d');
         cvs.width = window.innerWidth*.75;
         cvs.height = window.innerHeight*.75;
-        w=cvs.width;
-        h=cvs.height;
-        specLow=h-200;
+        w = cvs.width;
+        h = cvs.height;
+        specLow = h-200;
 
         var grad = ctx.createLinearGradient(0, 0, w, 0);
         grad.addColorStop(0, "#FF0000");
@@ -106,63 +107,50 @@ function appLoad()
 }
 
 /**********************************************************************************************/
-/*  Draw the spectrum (called every animation frame).                                         */
+/*  Draw the spectrum (called roughly every buffer).                                          */
 /**********************************************************************************************/
 function update() 
 {
+    ctx.clearRect(0, 0, w, h);
     fdomain.getFloatFrequencyData(spectrum);
 
-    //Load the spectrum into the peaks array.
+    //Load spectrum, scale it to 1, invert.
     for(var i = 0; i < NSPC; i++) 
         peaks[i] = Math.abs(spectrum[i]);
-    
-    //The JS Node gives us an inverted spectrum, so we scale it from 0 to 1 and invert it.
     scale(peaks);
     invert(peaks);
-
 
     //Extract the notes.
     var notes = [];
     for(var fi = fi_low; fi < NSPC; fi++) 
     {
         f = (fi/NSPC)*new_nyq;
-        if(whatNote(f, binw/2) != "Z") 
+        if(whatNote(f, binw/2) != "Z") //If the bin captures a note, push it into the voice queue.
         {
             voice = {freq:f, amp:peaks[fi]};
             notes.push(voice);
         }
-    }
-    
-    //Scale the peaks to the height. 
-    for(var i = 0; i < NSPC; i++) 
-        peaks[i] = h*peaks[i];
-    //Begin drawing.
-    var px = 0;
-    ctx.clearRect(0, 0, w, h);
-    ctx.font = "15px Arial";
+    }   
+    //Extract the voices
+    topv = extractTopVoices(notes, voices, extractionThreshold).sort(function(a,b){ return a.freq-b.freq; });
+    V = topv.length;
+
+    //Draw spectrum.
+    ctx.font = "10px Arial";    
     for(var n = 0; n < notes.length; n++) 
     {
+        px = n*n_stride;
         ctx.fillRect(px, 30, 12, h*notes[n].amp);
         nText = whatNote(notes[n].freq, binw/2);
         if(nText.length == 1)
             ctx.fillText(whatNote(notes[n].freq, binw/2), px, 20);
         else
             ctx.fillText(whatNote(notes[n].freq, binw/2), px-3, 20);  
-        
-        px += n_stride;
     }
 
-    //Extract the voices
-    topv = extractTopVoices(notes, voices, .2).sort(function(a,b){ return a.freq-b.freq; });
-    V = topv.length;
-    for(var v = 0; v < V; v++) {
-        ctx.font = "40px Arial";
+    ctx.font = "40px Arial";
+    for(var v = 0; v < V; v++)
         ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*V), h-50);
-    }
-
-    //Call again when frame is ready.
-    if(!analyserPause)
-        requestAnimationFrame(update);
 }
 
 //Extracts top voices above a threshold. nVoices is the maximum number of voices to search for.
@@ -187,12 +175,11 @@ function extractTopVoices(input, max_N, threshold)
     }
     return voiceQueue;
 }
-
 //Returns the voice index in the voice queue that is a duplicate, or a -1 if there are none.
-function duplicateNote(voice, vq) 
+function findDuplicate(voice, queue) 
 {
-    for(var i = 0; i < vq.length; i++) 
-        if(whatNote(voice.freq, binw/2) == whatNote(vq[i].freq, binw/2))
+    for(var i = 0; i < queue.length; i++) 
+        if(whatNote(voice.freq, binw/2) == whatNote(queue[i].freq, binw/2))
             return i;
     return -1;
 }
@@ -203,8 +190,6 @@ function duplicateNote(voice, vq)
 /**********************************************************************************************/
 function setupAudioNodes() 
 {
-    sourceNode = actx.createBufferSource();
-
     //Create an anti-aliasing filter for the downsampling
     aaf = actx.createBiquadFilter();
     aaf.type = aaf.LOWPASS;
@@ -226,39 +211,30 @@ function setupAudioNodes()
     fdomain.smoothingTimeConstant = 0.9;
     
     //Connect the Nodes.
-    sourceNode.connect(aaf);
     aaf.connect(DSNode);
     DSNode.connect(fdomain);
-
-    //Don't forget playback.
-    sourceNode.connect(actx.destination);
 }
 
-//For the audio playback.
-function loadSound(url, offset) 
-{
-    var request = new XMLHttpRequest();
-    request.open('GET', url, true);
-    request.responseType = 'arraybuffer';
-    request.onload = function() 
-    {
-        actx.decodeAudioData(request.response, 
-                             function(buffer) { createSource(buffer, offset); }, 
-                             function(e) { console.log(e); });
-    }
-    request.send();
-}
-
-function createSource(buffer, offset)
+function loadFile(URL, player)
 {   
-    sourceNode = actx.createBufferSource();  
-    sourceNode.buffer = buffer;
+    HTMLAudio = player;
+    HTMLAudio.src = URL;
+
+    sourceNode = actx.createMediaElementSource(HTMLAudio);  
     sourceNode.loop = true;
-    
-    //Re-connect the source node.
     sourceNode.connect(aaf);
     sourceNode.connect(actx.destination);
-
-    //Play the sound.
-    sourceNode.start(0, offset);
 }
+
+// success callback when requesting audio input stream
+function micStream(stream) 
+{
+    // Create an AudioNode from the stream.
+    sourceNode = actx.createMediaStreamSource(stream);
+    sourceNode.connect(aaf);
+    sourceNode.connect(actx.destination);
+    analyserStart();
+}
+
+function analyserStart() { loopIntervalID = setInterval(update, 1000/(fs/N)); }
+function analyserPause() { clearInterval(loopIntervalID); }
