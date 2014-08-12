@@ -46,8 +46,8 @@
 
             function onLoad() { appLoad(); }
 
-            document.getElementById("Audio").play = function(){ analyserStart(); };
-            document.getElementById("Audio").pause = function(){ analyserPause(); };
+            document.getElementById("Audio").addEventListener('play', analyserStart);
+            document.getElementById("Audio").addEventListener('pause', analyserPause);
 
             function micClick()
             {

@@ -69,7 +69,7 @@ var fs = 44100,                                 //Original sampling rate.
     f_low = getFreq("C", 7-octaves),            //Frequency of lowest note allowed.
     fi_low = closestBin(f_low, NSPC, new_nyq),  //FFT Bin index of lowest note allowed.
     voices = 7,                                 //Number of voices to look for.
-    extractionThreshold = .5,                   //Amplitude threshold of frequency (0 to 1)
+    extractionThreshold = 0,                   //Amplitude threshold of frequency (0 to 1)
 
     inputType,
     loopIntervalID;
@@ -236,5 +236,5 @@ function micStream(stream)
     analyserStart();
 }
 
-function analyserStart() { loopIntervalID = setInterval(update, 1000/(fs/N)); }
+function analyserStart() { loopIntervalID = setInterval(update, 1000/60); }
 function analyserPause() { clearInterval(loopIntervalID); }
