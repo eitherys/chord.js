@@ -46,15 +46,15 @@
 
             function onLoad() { appLoad(); }
 
-            document.getElementById("Audio").addEventListener('play', analyserStart);
-            document.getElementById("Audio").addEventListener('pause', analyserPause);
+            document.getElementById("Audio").addEventListener('play', appStart);
+            document.getElementById("Audio").addEventListener('pause', appPause);
 
             function micClick()
             {
                 navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
                 navigator.getUserMedia( {video:false, audio:true}, micStream, function(){alert('getUserMedia() not supported!');});
 
-                analyserStart();
+                appStart();
             }
             function fileClick() 
             {

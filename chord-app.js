@@ -71,8 +71,8 @@ var fs = 44100,                                 //Original sampling rate.
     voices = 7,                                 //Number of voices to look for.
     extractionThreshold = 0,                   //Amplitude threshold of frequency (0 to 1)
 
-    inputType,
-    loopIntervalID;
+    loopIntervalID,
+    started = false;
 
 function appLoad() 
 {
@@ -217,8 +217,11 @@ function setupAudioNodes()
 
 function loadFile(URL, player)
 {   
-    sourceNode.disconnect(0);
-    sourceNode.disconnect(1);
+    if(started) 
+    {
+        sourceNode.disconnect(0);
+        sourceNode.disconnect(1);
+    }
 
     HTMLAudio = player;
     HTMLAudio.src = URL;
@@ -232,13 +235,20 @@ function loadFile(URL, player)
 // success callback when requesting audio input stream
 function micStream(stream) 
 {
-    sourceNode.disconnect(0);
-    sourceNode.disconnect(1);
+    if(started) 
+    {
+        sourceNode.disconnect(0);
+        sourceNode.disconnect(1);
+    }
     sourceNode = actx.createMediaStreamSource(stream);
     
     sourceNode.connect(aaf);
     sourceNode.connect(actx.destination);
 }
 
-function analyserStart() { loopIntervalID = setInterval(update, 1000/30); }
-function analyserPause() { clearInterval(loopIntervalID); }
+function appStart() 
+{ 
+    loopIntervalID = setInterval(update, 1000/30);
+    started = true; 
+}
+function appPause() { clearInterval(loopIntervalID); }
