@@ -217,11 +217,14 @@ function setupAudioNodes()
 
 function loadFile(URL, player)
 {   
+    sourceNode.disconnect(0);
+    sourceNode.disconnect(1);
+
     HTMLAudio = player;
     HTMLAudio.src = URL;
-
     sourceNode = actx.createMediaElementSource(HTMLAudio);  
     sourceNode.loop = true;
+    
     sourceNode.connect(aaf);
     sourceNode.connect(actx.destination);
 }
@@ -229,11 +232,12 @@ function loadFile(URL, player)
 // success callback when requesting audio input stream
 function micStream(stream) 
 {
-    // Create an AudioNode from the stream.
+    sourceNode.disconnect(0);
+    sourceNode.disconnect(1);
     sourceNode = actx.createMediaStreamSource(stream);
+    
     sourceNode.connect(aaf);
     sourceNode.connect(actx.destination);
-    analyserStart();
 }
 
 function analyserStart() { loopIntervalID = setInterval(update, 1000/30); }

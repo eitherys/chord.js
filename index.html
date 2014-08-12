@@ -53,6 +53,8 @@
             {
                 navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
                 navigator.getUserMedia( {video:false, audio:true}, micStream, function(){alert('getUserMedia() not supported!');});
+
+                analyserStart();
             }
             function fileClick() 
             {
