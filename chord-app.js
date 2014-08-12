@@ -236,5 +236,5 @@ function micStream(stream)
     analyserStart();
 }
 
-function analyserStart() { loopIntervalID = setInterval(update, 1000/60); }
+function analyserStart() { loopIntervalID = setInterval(update, 1000/30); }
 function analyserPause() { clearInterval(loopIntervalID); }
