@@ -220,9 +220,8 @@ function loadFile(URL, player)
     if(started) 
         sourceNode.disconnect(0);
 
-    HTMLAudio = player;
-    HTMLAudio.src = URL;
-    sourceNode = actx.createMediaElementSource(HTMLAudio);  
+    player.src = URL;
+    sourceNode = actx.createMediaElementSource(player);  
     sourceNode.loop = true;
     
     sourceNode.connect(aaf);
@@ -234,7 +233,7 @@ function micStream(stream)
 {
     if(started) 
         sourceNode.disconnect(0);
-    
+
     sourceNode = actx.createMediaStreamSource(stream);
     
     sourceNode.connect(aaf);
