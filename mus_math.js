@@ -43,6 +43,8 @@ var semitones = {
 	"B" : 12
 }
 
+var semitoneArray = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+
 var semitone_degrees = {
 	"1":0,
 	"b2":1,

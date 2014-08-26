@@ -132,9 +132,9 @@ function update()
         }
     }   
     //Extract the voices
-    topv = extractTopVoices(notes, voices, extractionThreshold).sort(function(a,b){ return a.freq-b.freq; });
-    V = topv.length;
+    chroma = getChroma(notes, noteBins);
 
+    /*
     //Draw spectrum.
     ctx.font = "10px Arial";    
     for(var n = 0; n < notes.length; n++) 
@@ -146,11 +146,23 @@ function update()
             ctx.fillText(whatNote(notes[n].freq, binw/2), px, 20);
         else
             ctx.fillText(whatNote(notes[n].freq, binw/2), px-3, 20);  
-    }
+    }*/
 
     ctx.font = "40px Arial";
-    for(var v = 0; v < V; v++)
-        ctx.fillText(whatNote(topv[v].freq, binw/2), w*(.75+2*v)/(2*V), h-50);
+    for(var c = 0; c < 12; c++)
+    {
+        ctx.globalAlpha=chroma[c];
+        ctx.fillRect(w*(c/12), h-chroma[c]*600, w/12, chroma[c]*600);
+        ctx.fillText(semitoneArray[c], w*(c/12)+w/36, h-650);
+    }
+}
+function getChroma(notes) 
+{
+    chroma = new Float32Array(12);
+    for(var i = 0; i < notes.length; i++)
+        chroma[i%12] += notes[i].amp;
+    scale(chroma);
+    return chroma;
 }
 
 //Extracts top voices above a threshold. nVoices is the maximum number of voices to search for.
@@ -208,7 +220,7 @@ function setupAudioNodes()
     //Create the FFT Node.
     fdomain = actx.createAnalyser();
     fdomain.fftSize = NFFT;
-    fdomain.smoothingTimeConstant = 0.9;
+    fdomain.smoothingTimeConstant = 0.6;
     
     //Connect the Nodes.
     aaf.connect(DSNode);
